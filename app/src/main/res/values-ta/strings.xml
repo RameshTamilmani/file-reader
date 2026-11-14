@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">என் ஆவண பார்வையாளர்</string>
+    <string name="nav_recent">சமீபத்தியவை</string>
+    <string name="nav_files">கோப்புகள்</string>
+    <string name="nav_favorites">விருப்பங்கள்</string>
+    <string name="nav_settings">அமைப்புகள்</string>
+
+    <string name="search_files_hint">கோப்பு பெயரைத் தேடுக…</string>
+    <string name="open_file_picker">ஆவணத்தைத் திற</string>
+    <string name="browse_folder">கோப்புறையைத் திற</string>
+    <string name="pick_downloads">பதிவிறக்கங்கள் அல்லது சேமிப்பகத்திலிருந்து தேர்ந்தெடுக்கவும்</string>
+
+    <string name="filter_all">அனைத்தும்</string>
+    <string name="filter_pdf">PDF</string>
+    <string name="filter_word">Word</string>
+    <string name="filter_excel">Excel</string>
+    <string name="filter_ppt">PowerPoint</string>
+    <string name="filter_text">உரை</string>
+    <string name="filter_images">படங்கள்</string>
+
+    <string name="sort_name">பெயர்</string>
+    <string name="sort_date">தேதி</string>
+    <string name="sort_size">அளவு</string>
+    <string name="sort_type">வகை</string>
+
+    <string name="empty_recent_title">சமீபத்திய ஆவணங்கள் இல்லை</string>
+    <string name="empty_recent_body">இணையமின்றிப் பார்க்க உங்கள் சாதனத்திலிருந்து PDF, Office, உரை அல்லது படக் கோப்பைத் திறக்கவும்.</string>
+    <string name="empty_favorites_title">விருப்பங்கள் எதுவும் இல்லை</string>
+    <string name="empty_favorites_body">இங்கே நிலைநிறுத்த எந்த ஆவணத்தையும் நட்சத்திரக் குறியிடவும்.</string>
+    <string name="empty_files_title">கோப்புறை திறக்கப்படவில்லை</string>
+    <string name="empty_files_body">கூடுதல் அனுமதிகள் இன்றி பதிவிறக்கங்கள் அல்லது ஆவணங்களைப் பார்க்க கணினி கோப்புறை தேர்வியைப் பயன்படுத்தவும்.</string>
+
+    <string name="simplified_view_notice">எளிமைப்படுத்தப்பட்ட பார்வை — சாதனத்திற்குள் வடிவமைப்புடன் காட்டப்படுகிறது</string>
+    <string name="unsupported_title">ஆதரிக்கப்படாத கோப்பு வடிவம்</string>
+    <string name="unsupported_body">இந்தக் கோப்பு வகையை நேரடியாகக் காட்ட முடியவில்லை.</string>
+    <string name="open_with_another_app">மற்றொரு செயலியில் திற</string>
+    <string name="error_corrupted_title">ஆவணத்தைத் திறக்க முடியவில்லை</string>
+    <string name="error_empty_file">இந்தக் கோப்பு காலியாக உள்ளது (0 பைட்டுகள்).</string>
+
+    <string name="password_required_title">கடவுச்சொல் பாதுகாக்கப்பட்ட PDF</string>
+    <string name="password_required_body">இந்த PDF-ஐத் திறக்க கடவுச்சொல்லை உள்ளிடவும். கோப்போ கடவுச்சொல்லோ சாதனத்தை விட்டு வெளியேறாது.</string>
+    <string name="password_hint">ஆவணக் கடவுச்சொல்</string>
+    <string name="unlock">திற</string>
+    <string name="cancel">ரத்து செய்</string>
+    <string name="wrong_password">தவறான கடவுச்சொல். மீண்டும் முயற்சிக்கவும்.</string>
+
+    <string name="jump_to_page">பக்கத்திற்குச் செல்</string>
+    <string name="page_of">பக்கம் %1$d / %2$d</string>
+    <string name="freeze_header">தலைப்பை நிலைநிறுத்து</string>
+    <string name="fit_to_width">அகலத்திற்குப் பொருத்து</string>
+    <string name="night_reading_mode">இரவு வாசிப்பு முறை</string>
+    <string name="bookmark_saved">பக்கம் %1$d புக்மார்க் செய்யப்பட்டது</string>
+    <string name="share_file">கோப்பைப் பகிர்</string>
+    <string name="open_location">கோப்பு இருப்பிடத்தைத் திற</string>
+    <string name="print_document">அச்சிடு</string>
+    <string name="rotate_screen">சுழற்று</string>
+
+    <string name="settings_appearance">தோற்றம்</string>
+    <string name="settings_theme">தீம்</string>
+    <string name="theme_system">கணினி இயல்புநிலை</string>
+    <string name="theme_light">ஒளி முறை</string>
+    <string name="theme_dark">இருள் முறை</string>
+    <string name="settings_language">மொழி</string>
+    <string name="lang_english">English</string>
+    <string name="lang_tamil">தமிழ்</string>
+    <string name="settings_privacy">தனியுரிமை &amp; சேமிப்பகம்</string>
+    <string name="settings_offline_note">100% இணையமற்றது. இணைய அனுமதி, விளம்பரங்கள் அல்லது தரவு சேகரிப்பு இல்லை.</string>
+    <string name="clear_history">வரலாற்றை அழி</string>
+    <string name="clear_history_confirm">சமீபத்திய கோப்புகள், வாசிப்பு நிலைகள் மற்றும் புக்மார்க்குகளை நீக்கவா? சாதனத்தில் உள்ள கோப்புகள் அழிக்கப்படாது.</string>
+    <string name="history_cleared">வரலாறு அழிக்கப்பட்டது</string>
+    <string name="extract_selected">தேர்ந்தெடுத்தவற்றைப் பிரித்தெடு</string>
+    <string name="selected_count">%1$d தேர்ந்தெடுக்கப்பட்டது</string>
+    <string name="add_to_favorites">விருப்பங்களில் சேர்</string>
+</resources>
