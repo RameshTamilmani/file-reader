@@ -69,6 +69,19 @@ android {
     }
 }
 
+val copyNamedDebugApk = tasks.register<Copy>("copyNamedDebugApk") {
+    dependsOn("packageDebug")
+    from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    into(layout.buildDirectory.dir("outputs/named-apk"))
+    rename { "PPTX-Viewer-debug.apk" }
+}
+
+tasks.configureEach {
+    if (name == "assembleDebug") {
+        finalizedBy(copyNamedDebugApk)
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

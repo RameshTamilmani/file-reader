@@ -10,7 +10,7 @@ A private, offline Android viewer dedicated to PowerPoint `.pptx` presentations.
 
 ## Build an APK
 
-GitHub Actions runs tests and builds an installable debug APK when changes are pushed to `main`. Download the `MyDocumentViewer-Debug-APK` artifact from the latest successful run.
+GitHub Actions runs tests and builds an installable debug APK when changes are pushed to `main`. Download the `PPTX-Viewer-Debug-APK` artifact from the latest successful run. The named APK is `app/build/outputs/named-apk/PPTX-Viewer-debug.apk`.
 
 To build locally with JDK 17 and Android SDK 35 installed:
 
