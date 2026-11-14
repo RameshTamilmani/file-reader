@@ -49,9 +49,9 @@ object PresentationParser {
                     slide.shapes.forEach { shape ->
                         when (shape) {
                             is XSLFTextShape -> {
-                                val t = shape.text?.trim().orEmpty()
-                                if (t.isNotEmpty() && t != title) {
-                                    bodyLines += t.lines().filter { it.isNotBlank() }
+                                val text = shape.text?.trim().orEmpty()
+                                if (text.isNotEmpty() && text != title) {
+                                    bodyLines += text.lines().filter { it.isNotBlank() }
                                 }
                             }
                             is XSLFTable -> {
@@ -65,30 +65,31 @@ object PresentationParser {
                         }
                     }
 
+                    // Avoid statically referencing java.awt.Color, which is unavailable on Android.
                     val bgColor = try {
                         val background = slide.background
-                        val fillColor = background?.javaClass
+                        val color = background?.javaClass
                             ?.methods
-                            ?.firstOrNull { it.name == "getFillColor" }
+                            ?.firstOrNull { it.name == "getFillColor" && it.parameterCount == 0 }
                             ?.invoke(background)
 
-                        val color = fillColor ?: return@mapIndexed null
-                        val red = color.javaClass.methods
-                            .firstOrNull { it.name == "getRed" }
-                            ?.invoke(color) as? Int
-                        val green = color.javaClass.methods
-                            .firstOrNull { it.name == "getGreen" }
-                            ?.invoke(color) as? Int
-                        val blue = color.javaClass.methods
-                            .firstOrNull { it.name == "getBlue" }
-                            ?.invoke(color) as? Int
+                        fun colorComponent(methodName: String): Int? = color
+                            ?.javaClass
+                            ?.methods
+                            ?.firstOrNull { it.name == methodName && it.parameterCount == 0 }
+                            ?.invoke(color)
+                            ?.let { it as? Number }
+                            ?.toInt()
 
-                        if (red == null || green == null || blue == null) {
-                            null
-                        } else {
+                        val red = colorComponent("getRed")
+                        val green = colorComponent("getGreen")
+                        val blue = colorComponent("getBlue")
+                        if (red != null && green != null && blue != null) {
                             String.format("#%02X%02X%02X", red, green, blue)
+                        } else {
+                            null
                         }
-                    } catch (_: Throwable) {
+                    } catch (_: Exception) {
                         null
                     }
 

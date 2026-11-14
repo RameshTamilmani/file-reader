@@ -44,7 +44,7 @@ object SpreadsheetParser {
                         coroutineContext.ensureActive()
                         val row = sheet.getRow(r)
                         if (row == null) {
-                            rows += emptyList()
+                            rows.add(emptyList())
                             continue
                         }
                         val lastCell = row.lastCellNum.toInt().coerceAtLeast(0)
@@ -53,7 +53,7 @@ object SpreadsheetParser {
                             val cell = row.getCell(c)
                             if (cell == null) "" else formatter.formatCellValue(cell)
                         }
-                        rows += cells
+                        rows.add(cells)
                     }
                     val normalized = rows.map { row ->
                         if (row.size < maxCols) row + List(maxCols - row.size) { "" } else row
