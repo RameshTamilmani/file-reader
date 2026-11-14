@@ -2,7 +2,7 @@ name: Build Installable Android APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, 'fix/**' ]
   workflow_dispatch:
 
 jobs:

@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toSp
 import kotlinx.coroutines.launch
 
 @Composable
@@ -251,6 +253,7 @@ private fun SlideParagraphText(
     slideWidth: Float,
     availableWidth: androidx.compose.ui.unit.Dp
 ) {
+    val density = LocalDensity.current
     val alignment = when (paragraph.alignment) {
         "ctr" -> TextAlign.Center
         "r" -> TextAlign.Right
@@ -263,13 +266,18 @@ private fun SlideParagraphText(
             append(" ")
         }
         paragraph.runs.forEach { run ->
+            val fontSize = with(density) {
+                (run.fontSizePoints * EMU_PER_POINT * availableWidth.value / slideWidth)
+                    .coerceIn(1.5f, 96f)
+                    .dp
+                    .toSp()
+            }
             pushStyle(
                 SpanStyle(
-                    fontSize = (run.fontSizePoints * EMU_PER_POINT * availableWidth.value / slideWidth)
-                        .coerceIn(1.5f, 96f).sp,
+                    fontSize = fontSize,
                     fontWeight = if (run.bold) FontWeight.Bold else FontWeight.Normal,
                     fontStyle = if (run.italic) FontStyle.Italic else FontStyle.Normal,
-                    color = run.colorHex.toComposeColor(Color.Unspecified)
+                    color = run.colorHex.toComposeColor(Color.Black)
                 )
             )
             append(run.text)
@@ -279,6 +287,7 @@ private fun SlideParagraphText(
     Text(
         text = text,
         modifier = Modifier.fillMaxWidth(),
+        color = Color.Black,
         textAlign = alignment
     )
 }
@@ -300,6 +309,7 @@ private fun SlideTable(rows: List<List<String>>, modifier: Modifier = Modifier) 
                         Text(
                             text = cell,
                             fontSize = 6.sp,
+                            color = Color.Black,
                             maxLines = 3,
                             lineHeight = 7.sp
                         )
