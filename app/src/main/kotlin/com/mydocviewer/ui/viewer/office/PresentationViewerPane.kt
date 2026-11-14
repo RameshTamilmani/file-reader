@@ -31,7 +31,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -160,7 +159,7 @@ private fun SlideCanvas(
 ) {
     BoxWithConstraints(
         modifier = modifier
-            .clip(RectangleShape)
+            .clip(RoundedCornerShape(0.dp))
             .background(slide.backgroundHex.toComposeColor(Color.White))
     ) {
         val slideWidth = presentation.slideWidth.toFloat().coerceAtLeast(1f)
@@ -194,7 +193,7 @@ private fun SlideElementView(
     val shape = when {
         element.shapeKind == "ellipse" || element.shapeKind == "arc" -> CircleShape
         element.shapeKind == "roundRect" -> RoundedCornerShape(4.dp)
-        else -> RectangleShape
+        else -> RoundedCornerShape(0.dp)
     }
     val background = element.fillHex.toComposeColor(Color.Transparent)
     val borderColor = element.lineHex?.toComposeColorOrNull()
