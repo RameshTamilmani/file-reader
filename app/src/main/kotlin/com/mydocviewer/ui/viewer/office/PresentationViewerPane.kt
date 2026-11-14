@@ -257,6 +257,7 @@ private fun SlideParagraphText(
     availableWidth: androidx.compose.ui.unit.Dp
 ) {
     val density = LocalDensity.current
+    var fitScale by remember(paragraph) { mutableFloatStateOf(1f) }
     val alignment = when (paragraph.alignment) {
         "ctr" -> TextAlign.Center
         "r" -> TextAlign.Right
@@ -273,7 +274,7 @@ private fun SlideParagraphText(
                 .coerceIn(1.5f, 96f)
             pushStyle(
                 SpanStyle(
-                    fontSize = (fontSizeDp / density.fontScale).sp,
+                    fontSize = (fontSizeDp * fitScale / density.fontScale).sp,
                     fontWeight = if (run.bold) FontWeight.Bold else FontWeight.Normal,
                     fontStyle = if (run.italic) FontStyle.Italic else FontStyle.Normal,
                     color = run.colorHex.toComposeColor(Color.Black)
@@ -287,7 +288,12 @@ private fun SlideParagraphText(
         text = text,
         modifier = Modifier.fillMaxWidth(),
         color = Color.Black,
-        textAlign = alignment
+        textAlign = alignment,
+        onTextLayout = { layout ->
+            if (layout.didOverflowHeight && fitScale > MIN_TEXT_FIT_SCALE) {
+                fitScale = (fitScale * TEXT_FIT_SCALE_STEP).coerceAtLeast(MIN_TEXT_FIT_SCALE)
+            }
+        }
     )
 }
 
@@ -360,3 +366,5 @@ private fun String?.toComposeColorOrNull(): Color? {
 
 private const val EMU_PER_POINT = 12700f
 private const val MAX_DECODED_IMAGE_SIZE = 2048
+private const val MIN_TEXT_FIT_SCALE = 0.5f
+private const val TEXT_FIT_SCALE_STEP = 0.9f
