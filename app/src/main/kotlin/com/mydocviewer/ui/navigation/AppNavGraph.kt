@@ -132,10 +132,9 @@ fun AppNavHost(
                 route = Routes.VIEWER,
                 arguments = listOf(navArgument("uri") { type = NavType.StringType })
             ) { backStackEntry ->
-                val encoded = backStackEntry.arguments?.getString("uri").orEmpty()
-                val decoded = Uri.decode(encoded)
+                val uri = backStackEntry.arguments?.getString("uri").orEmpty()
                 DocumentViewerScreen(
-                    uriString = decoded,
+                    uriString = uri,
                     onBack = { navController.popBackStack() }
                 )
             }
