@@ -31,10 +31,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { prefsRepo.setThemeMode(mode) }
     }
 
-    fun setNightReadingMode(enabled: Boolean) {
-        viewModelScope.launch { prefsRepo.setNightReadingMode(enabled) }
-    }
-
     fun setLanguage(code: String) {
         viewModelScope.launch {
             prefsRepo.setLanguageCode(code)

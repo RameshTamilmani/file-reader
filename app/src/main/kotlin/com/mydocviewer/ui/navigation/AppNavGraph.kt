@@ -32,6 +32,7 @@ import com.mydocviewer.ui.files.FilesScreen
 import com.mydocviewer.ui.home.HomeScreen
 import com.mydocviewer.ui.settings.SettingsScreen
 import com.mydocviewer.ui.viewer.DocumentViewerScreen
+import com.mydocviewer.util.FileTypeDetector
 
 private object Routes {
     const val RECENT = "recent"
@@ -63,7 +64,13 @@ fun AppNavHost(
     }
 
     val openPicker = {
-        pickFileLauncher.launch(arrayOf("*/*"))
+        pickFileLauncher.launch(
+            arrayOf(
+                FileTypeDetector.PPTX_MIME_TYPE,
+                "application/octet-stream",
+                "application/zip"
+            )
+        )
     }
 
     LaunchedEffect(incomingDocumentUri) {

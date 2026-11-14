@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.mydocviewer.data.preferences.UserPreferencesRepository
 import com.mydocviewer.data.repository.DocumentRepository
 import com.mydocviewer.domain.model.DocumentItem
+import com.mydocviewer.domain.model.DocumentType
 import com.mydocviewer.domain.model.SortOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,6 +74,7 @@ class FilesViewModel @Inject constructor(
         val favs = (values[7] as List<DocumentItem>).map { it.uriString }.toSet()
 
         val merged = list
+            .filter { it.documentType == DocumentType.POWERPOINT }
             .map { it.copy(isFavorite = it.uriString in favs) }
             .filter { query.isBlank() || it.displayName.contains(query, ignoreCase = true) }
             .let { filtered ->
@@ -137,7 +139,9 @@ class FilesViewModel @Inject constructor(
 
     fun favoriteSelected() {
         viewModelScope.launch {
-            val targets = rawFiles.value.filter { it.uriString in selectedUris.value }
+            val targets = rawFiles.value.filter {
+                it.documentType == DocumentType.POWERPOINT && it.uriString in selectedUris.value
+            }
             repository.setFavoritesBatch(targets, favorite = true)
             selectedUris.value = emptySet()
         }

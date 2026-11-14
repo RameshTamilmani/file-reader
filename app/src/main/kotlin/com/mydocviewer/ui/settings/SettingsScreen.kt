@@ -18,7 +18,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -86,23 +85,6 @@ fun SettingsScreen(
                     )
                     Text(text = label, modifier = Modifier.padding(start = 8.dp))
                 }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.setNightReadingMode(!prefs.nightReadingMode) }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.night_reading_mode),
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(
-                    checked = prefs.nightReadingMode,
-                    onCheckedChange = viewModel::setNightReadingMode
-                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

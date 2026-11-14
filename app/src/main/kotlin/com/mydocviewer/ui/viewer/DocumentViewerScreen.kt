@@ -5,9 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.net.Uri
-import android.print.PrintAttributes
-import android.print.PrintManager
-import android.webkit.WebView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.ScreenRotation
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
@@ -49,7 +44,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,15 +61,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mydocviewer.R
-import com.mydocviewer.domain.model.DocumentType
-import com.mydocviewer.ui.viewer.archive.ArchiveViewerPane
-import com.mydocviewer.ui.viewer.archive.EpubViewerPane
-import com.mydocviewer.ui.viewer.image.ImageViewerPane
 import com.mydocviewer.ui.viewer.office.PresentationViewerPane
-import com.mydocviewer.ui.viewer.office.SpreadsheetViewerPane
-import com.mydocviewer.ui.viewer.office.WordViewerPane
-import com.mydocviewer.ui.viewer.pdf.PdfViewerPane
-import com.mydocviewer.ui.viewer.text.TextViewerPane
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,41 +74,33 @@ fun DocumentViewerScreen(
     val activity = context as? Activity
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
     var showMenu by remember { mutableStateOf(false) }
     var showJumpDialog by remember { mutableStateOf(false) }
-    var showThumbnails by remember { mutableStateOf(false) }
     var jumpInput by remember { mutableStateOf("") }
-    var imageRotation by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(uriString) {
         viewModel.openDocument(uriString)
     }
 
     LaunchedEffect(state.statusBanner) {
-        val msg = state.statusBanner
-        if (msg != null) {
-            snackbarHostState.showSnackbar(msg)
+        state.statusBanner?.let { message ->
+            snackbarHostState.showSnackbar(message)
             viewModel.clearBanner()
         }
     }
 
-    // Immersive full-screen mode controller
     LaunchedEffect(state.isImmersive) {
         val window = activity?.window ?: return@LaunchedEffect
         val controller = WindowCompat.getInsetsController(window, window.decorView)
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (state.isImmersive) {
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-        } else {
-            controller.show(WindowInsetsCompat.Type.systemBars())
-        }
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (state.isImmersive) controller.hide(WindowInsetsCompat.Type.systemBars())
+        else controller.show(WindowInsetsCompat.Type.systemBars())
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            val window = activity?.window
-            if (window != null) {
+            activity?.window?.let { window ->
                 WindowCompat.getInsetsController(window, window.decorView)
                     .show(WindowInsetsCompat.Type.systemBars())
             }
@@ -130,7 +108,8 @@ fun DocumentViewerScreen(
         }
     }
 
-    val doc = state.document
+    val document = state.document
+    val presentation = (state.content as? ViewerContent.Presentation)?.presentation
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -139,7 +118,7 @@ fun DocumentViewerScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            text = doc?.displayName ?: "Document",
+                            text = document?.displayName ?: stringResource(R.string.app_name),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -152,50 +131,34 @@ fun DocumentViewerScreen(
                     actions = {
                         IconButton(onClick = viewModel::toggleFavorite) {
                             Icon(
-                                imageVector = if (doc?.isFavorite == true) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                imageVector = if (document?.isFavorite == true) {
+                                    Icons.Filled.Star
+                                } else {
+                                    Icons.Outlined.StarBorder
+                                },
                                 contentDescription = stringResource(R.string.add_to_favorites)
                             )
                         }
                         IconButton(onClick = viewModel::addBookmarkAtCurrentPosition) {
-                            Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Bookmark")
+                            Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Bookmark slide")
                         }
                         Box {
                             IconButton(onClick = { showMenu = true }) {
                                 Icon(Icons.Outlined.MoreVert, contentDescription = "More actions")
                             }
-                            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                if (doc?.documentType == DocumentType.TEXT) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.night_reading_mode)) },
-                                        leadingIcon = { Icon(Icons.Outlined.DarkMode, null) },
-                                        onClick = {
-                                            viewModel.toggleNightReadingMode()
-                                            showMenu = false
-                                        }
-                                    )
-                                }
-                                if (doc?.documentType == DocumentType.PDF) {
-                                    DropdownMenuItem(
-                                        text = { Text("Thumbnails") },
-                                        onClick = {
-                                            showThumbnails = !showThumbnails
-                                            showMenu = false
-                                        }
-                                    )
-                                }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.rotate_screen)) },
-                                    leadingIcon = { Icon(Icons.Outlined.ScreenRotation, null) },
                                     onClick = {
-                                        if (doc?.documentType == DocumentType.IMAGE) {
-                                            imageRotation = (imageRotation + 90f) % 360f
-                                        } else if (activity != null) {
-                                            val isLandscape = activity.requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                                            activity.requestedOrientation = if (isLandscape) {
-                                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                            } else {
-                                                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                                            }
+                                        val isLandscape = activity?.requestedOrientation ==
+                                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                        activity?.requestedOrientation = if (isLandscape) {
+                                            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                        } else {
+                                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                                         }
                                         showMenu = false
                                     }
@@ -205,21 +168,13 @@ fun DocumentViewerScreen(
                                     leadingIcon = { Icon(Icons.Outlined.Share, null) },
                                     onClick = {
                                         showMenu = false
-                                        if (doc != null) shareUri(context, Uri.parse(doc.uriString), doc.mimeType)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.open_location)) },
-                                    onClick = {
-                                        showMenu = false
-                                        openDownloadsOrFiles(context)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.print_document)) },
-                                    onClick = {
-                                        showMenu = false
-                                        if (doc != null) printSimpleSummary(context, doc.displayName)
+                                        document?.let {
+                                            sharePresentation(
+                                                context,
+                                                Uri.parse(it.uriString),
+                                                it.mimeType
+                                            )
+                                        }
                                     }
                                 )
                             }
@@ -229,7 +184,7 @@ fun DocumentViewerScreen(
             }
         },
         bottomBar = {
-            if (!state.isImmersive && (doc?.documentType == DocumentType.PDF || doc?.documentType == DocumentType.POWERPOINT)) {
+            if (!state.isImmersive && presentation != null) {
                 BottomAppBar {
                     Row(
                         modifier = Modifier
@@ -239,7 +194,11 @@ fun DocumentViewerScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = stringResource(R.string.page_of, state.currentPage, state.totalPages),
+                            text = stringResource(
+                                R.string.page_of,
+                                state.currentPage,
+                                state.totalPages
+                            ),
                             style = MaterialTheme.typography.labelLarge
                         )
                         TextButton(onClick = {
@@ -259,114 +218,47 @@ fun DocumentViewerScreen(
                 .padding(padding)
         ) {
             when (val content = state.content) {
-                is ViewerContent.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                ViewerContent.Loading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
-                }
-                is ViewerContent.Pdf -> {
-                    PdfViewerPane(
-                        cachedFile = content.cachedFile,
-                        pageCount = content.pageCount,
-                        requiresPasswordInitially = content.requiresPassword,
-                        currentPage = state.currentPage,
-                        onPageChange = { p -> viewModel.updatePage(p, content.pageCount) },
-                        showThumbnails = showThumbnails,
-                        onTapContent = viewModel::toggleImmersive
-                    )
-                }
-                is ViewerContent.Word -> {
-                    WordViewerPane(document = content.document, onTapContent = viewModel::toggleImmersive)
-                }
-                is ViewerContent.Spreadsheet -> {
-                    SpreadsheetViewerPane(workbook = content.workbook)
                 }
                 is ViewerContent.Presentation -> {
                     PresentationViewerPane(
                         presentation = content.presentation,
                         initialPage = state.currentPage,
-                        onPageChanged = { p -> viewModel.updatePage(p, content.presentation.slides.size) },
+                        onPageChanged = { page ->
+                            viewModel.updatePage(page, content.presentation.slides.size)
+                        },
                         onTapContent = viewModel::toggleImmersive
                     )
-                }
-                is ViewerContent.Text -> {
-                    TextViewerPane(
-                        document = content.textDoc,
-                        nightReadingMode = state.nightReadingMode,
-                        onTapContent = viewModel::toggleImmersive
-                    )
-                }
-                is ViewerContent.Image -> {
-                    ImageViewerPane(
-                        uri = content.uri,
-                        rotationDegrees = imageRotation,
-                        onTapContent = viewModel::toggleImmersive
-                    )
-                }
-                is ViewerContent.Archive -> {
-                    ArchiveViewerPane(
-                        entries = content.entries,
-                        onExtractSelected = viewModel::extractArchiveEntries
-                    )
-                }
-                is ViewerContent.Epub -> {
-                    EpubViewerPane(chapters = content.chapters)
                 }
                 is ViewerContent.Unsupported -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.unsupported_title),
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.unsupported_body),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Button(onClick = {
-                            openWithAnotherApp(context, Uri.parse(content.item.uriString), content.item.mimeType)
-                        }) {
-                            Text(stringResource(R.string.open_with_another_app))
+                    MessagePanel(
+                        title = stringResource(R.string.unsupported_title),
+                        message = stringResource(R.string.unsupported_pptx_only),
+                        buttonText = stringResource(R.string.open_with_another_app),
+                        onClick = {
+                            openWithAnotherApp(
+                                context,
+                                Uri.parse(content.item.uriString),
+                                content.item.mimeType
+                            )
                         }
-                    }
+                    )
                 }
                 is ViewerContent.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.error_corrupted_title),
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = content.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (content.item != null) {
-                            Spacer(modifier = Modifier.height(20.dp))
-                            OutlinedButton(onClick = {
-                                openWithAnotherApp(context, Uri.parse(content.item.uriString), content.item.mimeType)
-                            }) {
-                                Text(stringResource(R.string.open_with_another_app))
+                    MessagePanel(
+                        title = stringResource(R.string.error_corrupted_title),
+                        message = content.message,
+                        buttonText = if (content.item == null) null
+                        else stringResource(R.string.open_with_another_app),
+                        onClick = {
+                            content.item?.let {
+                                openWithAnotherApp(context, Uri.parse(it.uriString), it.mimeType)
                             }
                         }
-                    }
+                    )
                 }
             }
         }
@@ -386,11 +278,10 @@ fun DocumentViewerScreen(
             },
             confirmButton = {
                 Button(onClick = {
-                    val target = jumpInput.toIntOrNull() ?: state.currentPage
-                    viewModel.updatePage(target, state.totalPages)
+                    viewModel.updatePage(jumpInput.toIntOrNull() ?: state.currentPage, state.totalPages)
                     showJumpDialog = false
                 }) {
-                    Text("Go")
+                    Text(stringResource(R.string.jump_to_page))
                 }
             },
             dismissButton = {
@@ -402,7 +293,36 @@ fun DocumentViewerScreen(
     }
 }
 
-private fun shareUri(context: Context, uri: Uri, mimeType: String) {
+@Composable
+private fun MessagePanel(
+    title: String,
+    message: String,
+    buttonText: String?,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (buttonText != null) {
+            Spacer(modifier = Modifier.height(20.dp))
+            OutlinedButton(onClick = onClick) { Text(buttonText) }
+        }
+    }
+}
+
+private fun sharePresentation(context: Context, uri: Uri, mimeType: String) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = mimeType
         putExtra(Intent.EXTRA_STREAM, uri)
@@ -417,19 +337,4 @@ private fun openWithAnotherApp(context: Context, uri: Uri, mimeType: String) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, context.getString(R.string.open_with_another_app)))
-}
-
-private fun openDownloadsOrFiles(context: Context) {
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        type = "vnd.android.document/directory"
-    }
-    runCatching { context.startActivity(intent) }
-}
-
-private fun printSimpleSummary(context: Context, title: String) {
-    val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager ?: return
-    val webView = WebView(context)
-    webView.loadDataWithBaseURL(null, "<html><body><h2>$title</h2></body></html>", "text/html", "UTF-8", null)
-    val adapter = webView.createPrintDocumentAdapter(title)
-    printManager.print(title, adapter, PrintAttributes.Builder().build())
 }

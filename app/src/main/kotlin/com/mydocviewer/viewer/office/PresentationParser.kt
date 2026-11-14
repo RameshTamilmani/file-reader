@@ -17,63 +17,40 @@ object PresentationParser {
 
     private const val MAX_ARCHIVE_BYTES = 100 * 1024 * 1024
     private const val MAX_ENTRY_BYTES = 30 * 1024 * 1024
-    private const val MAX_LEGACY_FILE_BYTES = 30 * 1024 * 1024
+    private const val DEFAULT_FONT_SIZE = 18f
 
-    suspend fun parse(context: Context, uri: Uri, fileName: String): ParsedPresentation =
+    suspend fun parse(context: Context, uri: Uri): ParsedPresentation =
         withContext(Dispatchers.IO) {
             val stream = context.contentResolver.openInputStream(uri)
-                ?: throw IllegalStateException("Unable to open presentation stream")
-
+                ?: throw IllegalStateException("Unable to open PowerPoint stream")
             stream.use { input ->
-                if (fileName.endsWith(".ppt", ignoreCase = true)) {
-                    return@withContext parseLegacyPresentation(readLimited(input, MAX_LEGACY_FILE_BYTES))
-                }
-
                 val entries = readArchive(input)
                 val presentationPath = "ppt/presentation.xml"
-                val presentation = entries[presentationPath]
+                val presentationXml = entries[presentationPath]
                     ?: throw IllegalArgumentException("Invalid PowerPoint file: presentation.xml is missing")
-                val presentationRels = parseRelationships(entries["ppt/_rels/presentation.xml.rels"])
-                val orderedSlidePaths = parseSlideOrder(presentation)
-                    .mapNotNull { relationshipId ->
-                        presentationRels[relationshipId]?.let { resolveTarget(presentationPath, it) }
-                    }
+                val dimensions = parseSlideDimensions(presentationXml)
+                val relationships = parseRelationships(entries["ppt/_rels/presentation.xml.rels"])
+                val theme = entries["ppt/theme/theme1.xml"]?.let(::parseTheme).orEmpty()
+                val slidePaths = parseSlideOrder(presentationXml)
+                    .mapNotNull { relationships[it] }
+                    .map { resolveTarget(presentationPath, it) }
                     .filter { it in entries }
-                val slidePaths = orderedSlidePaths.ifEmpty {
+                    .ifEmpty {
                         entries.keys
                             .filter { it.startsWith("ppt/slides/slide") && it.endsWith(".xml") }
-                            .sortedBy { path -> path.substringAfterLast("slide").substringBefore(".xml").toIntOrNull() ?: Int.MAX_VALUE }
+                            .sortedBy { it.substringAfterLast("slide").substringBefore(".xml").toIntOrNull() ?: Int.MAX_VALUE }
                     }
 
-                val slides = slidePaths.mapIndexedNotNull { index, slidePath ->
+                val slides = slidePaths.mapIndexedNotNull { index, path ->
                     coroutineContext.ensureActive()
-                    val slideXml = entries[slidePath] ?: return@mapIndexedNotNull null
-                    val relationships = parseRelationships(entries[relationshipsPath(slidePath)])
-                    val parsedSlide = parseSlide(slideXml)
-                    val images = parsedSlide.imageRelationshipIds.mapNotNull { relationshipId ->
-                        relationships[relationshipId]
-                            ?.let { resolveTarget(slidePath, it) }
-                            ?.let(entries::get)
-                    }
-                    val notesPath = relationships.values
-                        .firstOrNull { it.contains("/notesSlides/") || it.startsWith("../notesSlides/") }
-                        ?.let { resolveTarget(slidePath, it) }
-                    val notes = notesPath?.let(entries::get)?.let(::parseNotes).orEmpty()
-                    SlideData(
-                        index = index + 1,
-                        title = parsedSlide.title.ifBlank { "Slide ${index + 1}" },
-                        bodyLines = parsedSlide.bodyLines,
-                        tables = parsedSlide.tables,
-                        images = images,
-                        notes = notes,
-                        backgroundHex = parsedSlide.backgroundHex
-                    )
+                    val xml = entries[path] ?: return@mapIndexedNotNull null
+                    val slideRelationships = parseRelationships(entries[relationshipsPath(path)])
+                    parseSlide(index + 1, path, xml, slideRelationships, entries, theme)
                 }
-
                 if (slides.isEmpty()) {
                     throw IllegalArgumentException("Invalid PowerPoint file: no slides were found")
                 }
-                ParsedPresentation(slides = slides)
+                ParsedPresentation(slides, dimensions.first, dimensions.second)
             }
         }
 
@@ -111,6 +88,18 @@ object PresentationParser {
         return output.toByteArray()
     }
 
+    private fun parseSlideDimensions(xml: ByteArray): Pair<Long, Long> {
+        var width = 9144000L
+        var height = 6858000L
+        forEachTag(xml) { parser, event ->
+            if (event == XmlPullParser.START_TAG && parser.localName() == "sldSz") {
+                width = parser.getAttributeValue(null, "cx")?.toLongOrNull() ?: width
+                height = parser.getAttributeValue(null, "cy")?.toLongOrNull() ?: height
+            }
+        }
+        return width.coerceAtLeast(1L) to height.coerceAtLeast(1L)
+    }
+
     private fun parseSlideOrder(xml: ByteArray): List<String> {
         val result = mutableListOf<String>()
         forEachTag(xml) { parser, event ->
@@ -135,207 +124,349 @@ object PresentationParser {
         return result
     }
 
-    private data class ParsedSlide(
-        val title: String,
-        val bodyLines: List<String>,
-        val tables: List<List<List<String>>>,
-        val imageRelationshipIds: List<String>,
-        val backgroundHex: String?
-    )
-
-    private data class TextShape(val text: String, val placeholderType: String?)
-
-    private fun parseSlide(xml: ByteArray): ParsedSlide {
-        val shapes = mutableListOf<TextShape>()
-        val tables = mutableListOf<List<List<String>>>()
-        val imageIds = mutableListOf<String>()
-        var backgroundHex: String? = null
-        var inBackground = false
-        var inTextShape = false
-        var inTextElement = false
-        var placeholderType: String? = null
-        var shapeText = StringBuilder()
-        var shapeParagraphs = mutableListOf<String>()
-        var paragraphText = StringBuilder()
-        var inTable = false
-        var tableRows = mutableListOf<List<String>>()
-        var tableRow = mutableListOf<String>()
-        var inCell = false
-        var cellText = StringBuilder()
-
+    private fun parseTheme(xml: ByteArray): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        var currentKey: String? = null
         forEachTag(xml) { parser, event ->
-            val name = parser.localName()
             if (event == XmlPullParser.START_TAG) {
-                when (name) {
-                    "bg" -> inBackground = true
-                    "sp" -> {
-                        inTextShape = true
-                        placeholderType = null
-                        shapeText = StringBuilder()
-                        shapeParagraphs = mutableListOf()
+                when (parser.localName()) {
+                    "dk1", "lt1", "dk2", "lt2", "accent1", "accent2", "accent3",
+                    "accent4", "accent5", "accent6", "hlink", "folHlink" ->
+                        currentKey = parser.localName()
+                    "srgbClr" -> {
+                        val value = parser.getAttributeValue(null, "val")
+                        if (currentKey != null && value != null) result[currentKey!!] = "#$value"
                     }
-                    "t" -> if (inTextShape || inCell) inTextElement = true
-                    "ph" -> if (inTextShape) {
-                        placeholderType = parser.getAttributeValue(null, "type")
-                    }
-                    "p" -> if (inTextShape) paragraphText = StringBuilder()
-                    "tbl" -> {
-                        inTable = true
-                        tableRows = mutableListOf()
-                    }
-                    "tr" -> if (inTable) tableRow = mutableListOf()
-                    "tc" -> if (inTable) {
-                        inCell = true
-                        cellText = StringBuilder()
-                    }
-                    "blip" -> parser.getAttributeValue(RELATIONSHIP_NAMESPACE, "embed")?.let(imageIds::add)
-                    "srgbClr" -> if (inBackground && backgroundHex == null && parser.getAttributeValue(null, "val") != null) {
-                        backgroundHex = "#" + parser.getAttributeValue(null, "val")!!.uppercase()
+                    "sysClr" -> {
+                        val value = parser.getAttributeValue(null, "lastClr")
+                        if (currentKey != null && value != null) result[currentKey!!] = "#$value"
                     }
                 }
-            } else if (event == XmlPullParser.TEXT) {
-                when {
-                    inTextShape && inTextElement -> {
-                        shapeText.append(parser.text)
-                        paragraphText.append(parser.text)
-                    }
-                    inCell && inTextElement -> cellText.append(parser.text)
-                }
-            } else if (event == XmlPullParser.END_TAG) {
-                when (name) {
-                    "t" -> inTextElement = false
-                    "bg" -> inBackground = false
-                    "p" -> if (inTextShape) {
-                        paragraphText.toString().trim().takeIf(String::isNotEmpty)?.let(shapeParagraphs::add)
-                    }
-                    "sp" -> if (inTextShape) {
-                        shapes += TextShape(
-                            text = shapeParagraphs.joinToString("\n").ifBlank { shapeText.toString().trim() },
-                            placeholderType = placeholderType
-                        )
-                        inTextShape = false
-                    }
-                    "tc" -> if (inTable && inCell) {
-                        tableRow += cellText.toString().trim()
-                        inCell = false
-                    }
-                    "tr" -> if (inTable) tableRows += tableRow
-                    "tbl" -> if (inTable) {
-                        if (tableRows.isNotEmpty()) tables += tableRows
-                        inTable = false
-                    }
-                }
-            }
-        }
-
-        val nonEmptyShapes = shapes.filter { it.text.isNotBlank() }
-        val titleShape = nonEmptyShapes.firstOrNull {
-            it.placeholderType == "title" || it.placeholderType == "ctrTitle"
-        } ?: nonEmptyShapes.firstOrNull()
-        val title = titleShape?.text.orEmpty().lines().firstOrNull().orEmpty()
-        val bodyLines = nonEmptyShapes
-            .filterNot { it === titleShape }
-            .flatMap { it.text.lines() }
-            .filter(String::isNotBlank)
-
-        return ParsedSlide(title, bodyLines, tables, imageIds, backgroundHex)
-    }
-
-    private fun parseNotes(xml: ByteArray): String {
-        val notes = mutableListOf<String>()
-        var inShape = false
-        var inTextElement = false
-        var ignoredShape = false
-        var shapeText = StringBuilder()
-        var paragraphText = StringBuilder()
-        var shapeParagraphs = mutableListOf<String>()
-        forEachTag(xml) { parser, event ->
-            val name = parser.localName()
-            if (event == XmlPullParser.START_TAG) {
-                when (name) {
-                    "sp" -> {
-                        inShape = true
-                        ignoredShape = false
-                        shapeText = StringBuilder()
-                        shapeParagraphs = mutableListOf()
-                    }
-                    "t" -> if (inShape) inTextElement = true
-                    "ph" -> if (inShape) {
-                        ignoredShape = parser.getAttributeValue(null, "type") in
-                            setOf("slideImage", "sldNum", "dt", "hdr", "ftr")
-                    }
-                    "p" -> if (inShape) paragraphText = StringBuilder()
-                }
-            } else if (event == XmlPullParser.TEXT && inShape && inTextElement) {
-                shapeText.append(parser.text)
-                paragraphText.append(parser.text)
-            } else if (event == XmlPullParser.END_TAG) {
-                when (name) {
-                    "t" -> inTextElement = false
-                    "p" -> if (inShape) paragraphText.toString().trim()
-                        .takeIf(String::isNotEmpty)?.let(shapeParagraphs::add)
-                    "sp" -> if (inShape) {
-                        if (!ignoredShape) {
-                            val text = shapeParagraphs.joinToString("\n").ifBlank { shapeText.toString().trim() }
-                            if (text.isNotBlank()) notes += text
-                        }
-                        inShape = false
-                    }
-                }
-            }
-        }
-        return notes.joinToString("\n").trim()
-    }
-
-    private fun parseLegacyPresentation(bytes: ByteArray): ParsedPresentation {
-        val extracted = extractLegacyText(bytes)
-        val lines = extracted
-            .flatMap { it.lines() }
-            .map(String::trim)
-            .filter { it.length >= 2 && it.any(Char::isLetterOrDigit) }
-            .distinct()
-        return ParsedPresentation(
-            slides = listOf(
-                SlideData(
-                    index = 1,
-                    title = "Legacy PowerPoint",
-                    bodyLines = lines.ifEmpty {
-                        listOf("This legacy .ppt file could not be fully parsed on this device.")
-                    }
+            } else if (event == XmlPullParser.END_TAG &&
+                parser.localName() in setOf(
+                    "dk1", "lt1", "dk2", "lt2", "accent1", "accent2", "accent3",
+                    "accent4", "accent5", "accent6", "hlink", "folHlink"
                 )
-            )
+            ) {
+                currentKey = null
+            }
+        }
+        return result
+    }
+
+    private class ElementBuilder(val kind: String) {
+        var x = 0L
+        var y = 0L
+        var width = 0L
+        var height = 0L
+        var rotation = 0f
+        var fillHex: String? = null
+        var lineHex: String? = null
+        var shapeKind = "rect"
+        var imageRelationshipId: String? = null
+        var leftInset = 91440L
+        var topInset = 45720L
+        var rightInset = 91440L
+        var bottomInset = 45720L
+        var verticalAnchor = "t"
+        val paragraphs = mutableListOf<SlideParagraph>()
+        val tableRows = mutableListOf<List<String>>()
+        var row = mutableListOf<String>()
+        var cellText = StringBuilder()
+    }
+
+    private class ParagraphBuilder {
+        val runs = mutableListOf<SlideTextRun>()
+        var alignment = "l"
+        var bullet: String? = null
+        var fontSizePoints = DEFAULT_FONT_SIZE
+        var bold = false
+        var italic = false
+        var colorHex: String? = null
+    }
+
+    private class RunBuilder(
+        var fontSizePoints: Float,
+        var bold: Boolean,
+        var italic: Boolean,
+        var colorHex: String?
+    ) {
+        val text = StringBuilder()
+
+        fun build(): SlideTextRun = SlideTextRun(
+            text = text.toString(),
+            fontSizePoints = fontSizePoints,
+            bold = bold,
+            italic = italic,
+            colorHex = colorHex
         )
     }
 
-    private fun extractLegacyText(bytes: ByteArray): List<String> {
-        val strings = mutableListOf<String>()
-        fun collect(readChar: (Int) -> Char?, step: Int) {
-            val current = StringBuilder()
-            var offset = 0
-            while (offset < bytes.size) {
-                val char = readChar(offset)
-                if (char != null && (char.isLetterOrDigit() || char.isWhitespace() || char in ".,;:!?'-()")) {
-                    current.append(char)
-                } else {
-                    if (current.length >= 4) strings += current.toString().trim()
-                    current.clear()
+    private enum class FillTarget { SHAPE, LINE, TEXT }
+
+    private fun parseSlide(
+        index: Int,
+        path: String,
+        xml: ByteArray,
+        relationships: Map<String, String>,
+        entries: Map<String, ByteArray>,
+        theme: Map<String, String>
+    ): SlideData {
+        val elements = mutableListOf<SlideElement>()
+        var element: ElementBuilder? = null
+        var paragraph: ParagraphBuilder? = null
+        var run: RunBuilder? = null
+        var backgroundHex: String? = null
+        var inTransform = false
+        var inShapeProperties = false
+        var inLineProperties = false
+        var inTextBody = false
+        var inRunProperties = false
+        var inText = false
+        var inTable = false
+        var inCell = false
+        var fillTarget: FillTarget? = null
+        var defaultFontSize = DEFAULT_FONT_SIZE
+        var defaultBold = false
+        var defaultItalic = false
+        var defaultTextColor: String? = null
+
+        fun addRunText(text: String) {
+            if (text.isEmpty()) return
+            if (inCell && element != null) {
+                element!!.cellText.append(text)
+            } else if (inTextBody && paragraph != null) {
+                if (run != null) run!!.text.append(text)
+                else {
+                    paragraph!!.runs += SlideTextRun(
+                        text = text,
+                        fontSizePoints = paragraph!!.fontSizePoints,
+                        bold = paragraph!!.bold,
+                        italic = paragraph!!.italic,
+                        colorHex = paragraph!!.colorHex
+                    )
                 }
-                offset += step
             }
-            if (current.length >= 4) strings += current.toString().trim()
         }
-        collect({ offset ->
-            val value = bytes[offset].toInt() and 0xff
-            value.takeIf { it in 32..126 || it in 9..13 }?.toChar()
-        }, 1)
-        collect({ offset ->
-            if (offset + 1 >= bytes.size || bytes[offset + 1].toInt() != 0) null
-            else (bytes[offset].toInt() and 0xff).toChar()
-        }, 2)
-        return strings.distinct()
+
+        fun finishParagraph() {
+            val current = paragraph ?: return
+            run?.let { activeRun ->
+                if (activeRun.text.isNotEmpty()) current.runs += activeRun.build()
+            }
+            run = null
+            if (current.runs.isNotEmpty()) {
+                element?.paragraphs?.add(
+                    SlideParagraph(current.runs.toList(), current.alignment, current.bullet)
+                )
+            }
+            paragraph = null
+        }
+
+        fun applyColor(value: String?) {
+            if (value == null) return
+            val color = if (value.startsWith("#")) value else theme[value] ?: return
+            when (fillTarget) {
+                FillTarget.SHAPE -> element?.fillHex = color
+                FillTarget.LINE -> element?.lineHex = color
+                FillTarget.TEXT -> {
+                    if (run != null) run?.colorHex = color
+                    else paragraph?.colorHex = color
+                }
+                null -> if (inRunProperties) paragraph?.colorHex = color else backgroundHex = color
+            }
+        }
+
+        forEachTag(xml) { parser, event ->
+            val name = parser.localName()
+            if (event == XmlPullParser.START_TAG) {
+                when (name) {
+                    "sp", "pic", "graphicFrame" -> {
+                        element = ElementBuilder(name)
+                        inTransform = false
+                        inShapeProperties = false
+                        inLineProperties = false
+                        inTextBody = false
+                        inRunProperties = false
+                        inTable = false
+                    }
+                    "bg" -> fillTarget = FillTarget.SHAPE
+                    "xfrm" -> {
+                        inTransform = true
+                        parser.getAttributeValue(null, "rot")?.toFloatOrNull()?.let {
+                            element?.rotation = it / 60000f
+                        }
+                    }
+                    "off" -> if (inTransform) {
+                        element?.x = parser.getAttributeValue(null, "x")?.toLongOrNull() ?: 0L
+                        element?.y = parser.getAttributeValue(null, "y")?.toLongOrNull() ?: 0L
+                    }
+                    "ext" -> if (inTransform) {
+                        element?.width = parser.getAttributeValue(null, "cx")?.toLongOrNull() ?: 0L
+                        element?.height = parser.getAttributeValue(null, "cy")?.toLongOrNull() ?: 0L
+                    }
+                    "spPr" -> inShapeProperties = true
+                    "ln" -> inLineProperties = true
+                    "prstGeom" -> parser.getAttributeValue(null, "prst")?.let {
+                        element?.shapeKind = it
+                    }
+                    "bodyPr" -> {
+                        element?.leftInset = parser.getAttributeValue(null, "lIns")?.toLongOrNull()
+                            ?: element?.leftInset ?: 91440L
+                        element?.rightInset = parser.getAttributeValue(null, "rIns")?.toLongOrNull()
+                            ?: element?.rightInset ?: 91440L
+                        element?.topInset = parser.getAttributeValue(null, "tIns")?.toLongOrNull()
+                            ?: element?.topInset ?: 45720L
+                        element?.bottomInset = parser.getAttributeValue(null, "bIns")?.toLongOrNull()
+                            ?: element?.bottomInset ?: 45720L
+                        element?.verticalAnchor = parser.getAttributeValue(null, "anchor") ?: "t"
+                    }
+                    "txBody" -> inTextBody = true
+                    "p" -> if (inTextBody && !inTable) {
+                        paragraph = ParagraphBuilder().apply {
+                            fontSizePoints = defaultFontSize
+                            bold = defaultBold
+                            italic = defaultItalic
+                            colorHex = defaultTextColor
+                        }
+                    }
+                    "pPr" -> {
+                        parser.getAttributeValue(null, "algn")?.let { paragraph?.alignment = it }
+                    }
+                    "buChar" -> parser.getAttributeValue(null, "char")?.let {
+                        paragraph?.bullet = it
+                    }
+                    "buAutoNum" -> paragraph?.bullet = "•"
+                    "r" -> paragraph?.let { current ->
+                        run = RunBuilder(
+                            current.fontSizePoints,
+                            current.bold,
+                            current.italic,
+                            current.colorHex
+                        )
+                    }
+                    "rPr", "defRPr" -> {
+                        inRunProperties = true
+                        parser.getAttributeValue(null, "sz")?.toFloatOrNull()?.div(100f)?.let { size ->
+                            if (name == "defRPr") defaultFontSize = size
+                            if (name == "defRPr") paragraph?.fontSizePoints = size
+                            else run?.fontSizePoints = size
+                        }
+                        parser.getAttributeValue(null, "b")?.let { value ->
+                            if (name == "defRPr") defaultBold = value == "1"
+                            if (name == "defRPr") paragraph?.bold = value == "1"
+                            else run?.bold = value == "1"
+                        }
+                        parser.getAttributeValue(null, "i")?.let { value ->
+                            if (name == "defRPr") defaultItalic = value == "1"
+                            if (name == "defRPr") paragraph?.italic = value == "1"
+                            else run?.italic = value == "1"
+                        }
+                    }
+                    "solidFill" -> {
+                        fillTarget = when {
+                            inRunProperties -> FillTarget.TEXT
+                            inShapeProperties && inLineProperties -> FillTarget.LINE
+                            inShapeProperties -> FillTarget.SHAPE
+                            else -> null
+                        }
+                    }
+                    "srgbClr" -> applyColor(parser.getAttributeValue(null, "val")?.let { "#$it" })
+                    "schemeClr" -> applyColor(parser.getAttributeValue(null, "val"))
+                    "blip" -> element?.imageRelationshipId =
+                        parser.getAttributeValue(RELATIONSHIP_NAMESPACE, "embed")
+                    "t" -> inText = true
+                    "br" -> run?.text?.append('\n') ?: paragraph?.runs?.add(
+                        SlideTextRun(
+                            text = "\n",
+                            fontSizePoints = paragraph?.fontSizePoints ?: DEFAULT_FONT_SIZE
+                        )
+                    )
+                    "tbl" -> inTable = true
+                    "tr" -> if (inTable) element?.row = mutableListOf()
+                    "tc" -> if (inTable) {
+                        inCell = true
+                        element?.cellText = StringBuilder()
+                    }
+                }
+            } else if (event == XmlPullParser.TEXT && inText) {
+                addRunText(parser.text)
+            } else if (event == XmlPullParser.END_TAG) {
+                when (name) {
+                    "t" -> inText = false
+                    "xfrm" -> inTransform = false
+                    "spPr" -> inShapeProperties = false
+                    "ln" -> inLineProperties = false
+                    "txBody" -> {
+                        finishParagraph()
+                        inTextBody = false
+                        defaultFontSize = DEFAULT_FONT_SIZE
+                        defaultBold = false
+                        defaultItalic = false
+                        defaultTextColor = null
+                    }
+                    "rPr", "defRPr" -> inRunProperties = false
+                    "r" -> {
+                        run?.let { activeRun ->
+                            if (activeRun.text.isNotEmpty()) paragraph?.runs?.add(activeRun.build())
+                        }
+                        run = null
+                    }
+                    "solidFill" -> fillTarget = null
+                    "p" -> if (inTextBody && !inTable) finishParagraph()
+                    "tc" -> if (inTable && inCell) {
+                        element?.row?.add(element?.cellText?.toString().orEmpty())
+                        inCell = false
+                    }
+                    "tr" -> if (inTable) element?.tableRows?.add(element?.row?.toList().orEmpty())
+                    "tbl" -> inTable = false
+                    "sp", "pic", "graphicFrame" -> {
+                        val current = element
+                        if (current != null) {
+                            val image = current.imageRelationshipId
+                                ?.let(relationships::get)
+                                ?.let { resolveTarget(path, it) }
+                                ?.let(entries::get)
+                            elements += SlideElement(
+                                x = current.x,
+                                y = current.y,
+                                width = current.width,
+                                height = current.height,
+                                rotationDegrees = current.rotation,
+                                fillHex = current.fillHex,
+                                lineHex = current.lineHex,
+                                shapeKind = current.shapeKind,
+                                paragraphs = current.paragraphs.toList(),
+                                imageBytes = image,
+                                tableRows = current.tableRows.toList(),
+                                leftInset = current.leftInset,
+                                topInset = current.topInset,
+                                rightInset = current.rightInset,
+                                bottomInset = current.bottomInset,
+                                verticalAnchor = current.verticalAnchor
+                            )
+                        }
+                        element = null
+                        inTextBody = false
+                        inTable = false
+                    }
+                    "bg" -> fillTarget = null
+                }
+            }
+        }
+
+        val title = elements
+            .flatMap { it.paragraphs }
+            .flatMap { it.runs }
+            .firstOrNull { it.text.isNotBlank() }
+            ?.text
+            ?.lineSequence()
+            ?.firstOrNull()
+            .orEmpty()
+        return SlideData(index, title, elements, backgroundHex)
     }
 
-    private inline fun forEachTag(xml: ByteArray, action: (XmlPullParser, Int) -> Unit) {
+    private fun forEachTag(xml: ByteArray, action: (XmlPullParser, Int) -> Unit) {
         val parser = Xml.newPullParser()
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL, false)
@@ -349,11 +480,8 @@ object PresentationParser {
 
     private fun XmlPullParser.localName(): String = name?.substringAfter(':').orEmpty()
 
-    private fun relationshipsPath(partPath: String): String {
-        val directory = partPath.substringBeforeLast('/')
-        val fileName = partPath.substringAfterLast('/')
-        return "$directory/_rels/$fileName.rels"
-    }
+    private fun relationshipsPath(partPath: String): String =
+        "${partPath.substringBeforeLast('/')}/_rels/${partPath.substringAfterLast('/')}.rels"
 
     private fun resolveTarget(sourcePath: String, target: String): String {
         val combined = if (target.startsWith('/')) target.drop(1) else {

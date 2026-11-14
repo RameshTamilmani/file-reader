@@ -76,7 +76,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.fragment.compose)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -85,10 +84,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
-
-    // AndroidX PDF (Offline PDF rendering & PdfViewerFragment)
-    implementation(libs.androidx.pdf.viewer)
-    implementation(libs.androidx.pdf.viewer.fragment)
 
     // Hilt Dependency Injection
     implementation(libs.hilt.android)
@@ -103,15 +98,6 @@ dependencies {
     // DataStore & Storage Access Framework
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.documentfile)
-
-    // Offline Office Document Parsing (Apache POI)
-    implementation(libs.apache.poi)
-    implementation(libs.apache.poi.ooxml)
-    implementation(libs.apache.poi.scratchpad)
-
-    // Local Image Viewer (JPG, PNG, WEBP, GIF)
-    implementation(libs.coil.compose)
-    implementation(libs.coil.gif)
 
     implementation(libs.kotlinx.coroutines.android)
 

@@ -20,43 +20,17 @@ class FileTypeDetectorTest {
     }
 
     @Test
-    fun documentTypeCategoriesMatchExpectedFilters() {
-        assertEquals("PDF", DocumentType.PDF.categoryLabel)
-        assertEquals("Word", DocumentType.WORD.categoryLabel)
-        assertEquals("Excel", DocumentType.EXCEL.categoryLabel)
-        assertEquals("Excel", DocumentType.CSV.categoryLabel)
+    fun documentTypeIsPowerPointOnly() {
         assertEquals("PowerPoint", DocumentType.POWERPOINT.categoryLabel)
+        assertEquals(2, DocumentType.entries.size)
     }
 
     @Test
-    fun detectsPdfWhenHeaderIsNotAtByteZero() {
-        val bytes = ByteArray(12) + "%PDF-1.7".toByteArray()
-
-        assertEquals(
-            DocumentType.PDF,
-            FileTypeDetector.detectByContent(ByteArrayInputStream(bytes))
-        )
-    }
-
-    @Test
-    fun detectsOfficeTypeInsideZipWhenExtensionAndMimeAreUnavailable() {
+    fun detectsPptxPackageWhenExtensionAndMimeAreUnavailable() {
         assertEquals(DocumentType.POWERPOINT, detectZipType("ppt/presentation.xml"))
-        assertEquals(DocumentType.EXCEL, detectZipType("xl/workbook.xml"))
-        assertEquals(DocumentType.WORD, detectZipType("word/document.xml"))
-        assertEquals(DocumentType.ARCHIVE, detectZipType("images/photo.png"))
-    }
-
-    @Test
-    fun detectsLegacyOfficeTypeFromCompoundFileContents() {
-        val header = byteArrayOf(
-            0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte(),
-            0xA1.toByte(), 0xB1.toByte(), 0x1A, 0xE1.toByte()
-        )
-        val marker = "PowerPoint Document".toByteArray(Charsets.UTF_16LE)
-
         assertEquals(
-            DocumentType.POWERPOINT,
-            FileTypeDetector.detectByContent(ByteArrayInputStream(header + marker))
+            DocumentType.UNSUPPORTED,
+            detectZipType("xl/workbook.xml")
         )
     }
 
