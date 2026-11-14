@@ -7,6 +7,7 @@ import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
 import android.content.Context
 import com.mydocviewer.domain.model.DocumentItem
+import com.mydocviewer.domain.model.DocumentType
 
 object FileMetadataReader {
 
@@ -83,5 +84,6 @@ object FileMetadataReader {
                     lastModifiedAt = doc.lastModified()
                 )
             }
+            .filter { it.documentType == DocumentType.POWERPOINT }
     }
 }

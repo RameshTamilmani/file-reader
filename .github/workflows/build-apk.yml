@@ -32,5 +32,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MyDocumentViewer-Debug-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: PPTX-Viewer-Debug-APK
+          path: app/build/outputs/named-apk/PPTX-Viewer-debug.apk

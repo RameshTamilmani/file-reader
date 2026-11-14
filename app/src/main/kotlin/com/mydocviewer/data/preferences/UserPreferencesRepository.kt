@@ -1,7 +1,6 @@
 package com.mydocviewer.data.preferences
 
 import android.content.Context
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -17,7 +16,6 @@ enum class AppThemeMode { SYSTEM, LIGHT, DARK }
 
 data class UserPreferences(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
-    val nightReadingMode: Boolean = false,
     val languageCode: String = "en",
     val lastFolderTreeUri: String? = null
 )
@@ -28,7 +26,6 @@ class UserPreferencesRepository @Inject constructor(
 ) {
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
-        val NIGHT_READING = booleanPreferencesKey("night_reading")
         val LANGUAGE = stringPreferencesKey("language_code")
         val LAST_FOLDER_URI = stringPreferencesKey("last_folder_uri")
     }
@@ -38,7 +35,6 @@ class UserPreferencesRepository @Inject constructor(
             themeMode = runCatching {
                 AppThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: AppThemeMode.SYSTEM.name)
             }.getOrDefault(AppThemeMode.SYSTEM),
-            nightReadingMode = prefs[Keys.NIGHT_READING] ?: false,
             languageCode = prefs[Keys.LANGUAGE] ?: "en",
             lastFolderTreeUri = prefs[Keys.LAST_FOLDER_URI]
         )
@@ -46,10 +42,6 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setThemeMode(mode: AppThemeMode) {
         context.dataStore.edit { it[Keys.THEME_MODE] = mode.name }
-    }
-
-    suspend fun setNightReadingMode(enabled: Boolean) {
-        context.dataStore.edit { it[Keys.NIGHT_READING] = enabled }
     }
 
     suspend fun setLanguageCode(code: String) {

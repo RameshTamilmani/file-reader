@@ -12,15 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.FolderZip
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.InsertDriveFile
-import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Slideshow
-import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +30,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.outlined.StarBorder
 import com.mydocviewer.domain.model.DocumentItem
 import com.mydocviewer.domain.model.DocumentType
 import com.mydocviewer.util.FileTypeDetector
@@ -133,13 +127,6 @@ fun DocumentListRow(
 }
 
 fun iconForType(type: DocumentType): Pair<ImageVector, Color> = when (type) {
-    DocumentType.PDF -> Icons.Outlined.PictureAsPdf to Color(0xFFDC2626)
-    DocumentType.WORD -> Icons.Outlined.Description to Color(0xFF2563EB)
-    DocumentType.EXCEL, DocumentType.CSV -> Icons.Outlined.TableChart to Color(0xFF16A34A)
     DocumentType.POWERPOINT -> Icons.Outlined.Slideshow to Color(0xFFEA580C)
-    DocumentType.TEXT -> Icons.Outlined.Description to Color(0xFF475569)
-    DocumentType.IMAGE -> Icons.Outlined.Image to Color(0xFF0D9488)
-    DocumentType.EPUB -> Icons.Outlined.MenuBook to Color(0xFF7C3AED)
-    DocumentType.ARCHIVE -> Icons.Outlined.FolderZip to Color(0xFFB45309)
     DocumentType.UNSUPPORTED -> Icons.Outlined.InsertDriveFile to Color(0xFF64748B)
 }
