@@ -65,8 +65,31 @@ object PresentationParser {
                         }
                     }
 
-                    val bgColor = slide.background?.fillColor?.let { color ->
-                        String.format("#%02X%02X%02X", color.red, color.green, color.blue)
+                    val bgColor = try {
+                        val background = slide.background
+                        val fillColor = background?.javaClass
+                            ?.methods
+                            ?.firstOrNull { it.name == "getFillColor" }
+                            ?.invoke(background)
+
+                        val color = fillColor ?: return@mapIndexed null
+                        val red = color.javaClass.methods
+                            .firstOrNull { it.name == "getRed" }
+                            ?.invoke(color) as? Int
+                        val green = color.javaClass.methods
+                            .firstOrNull { it.name == "getGreen" }
+                            ?.invoke(color) as? Int
+                        val blue = color.javaClass.methods
+                            .firstOrNull { it.name == "getBlue" }
+                            ?.invoke(color) as? Int
+
+                        if (red == null || green == null || blue == null) {
+                            null
+                        } else {
+                            String.format("#%02X%02X%02X", red, green, blue)
+                        }
+                    } catch (_: Throwable) {
+                        null
                     }
 
                     SlideData(
