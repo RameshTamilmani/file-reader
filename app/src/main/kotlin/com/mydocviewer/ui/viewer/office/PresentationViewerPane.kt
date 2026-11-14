@@ -31,7 +31,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -58,7 +58,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.toSp
+import com.mydocviewer.viewer.office.ParsedPresentation
+import com.mydocviewer.viewer.office.SlideData
+import com.mydocviewer.viewer.office.SlideElement
+import com.mydocviewer.viewer.office.SlideParagraph
 import kotlinx.coroutines.launch
 
 @Composable
@@ -266,15 +269,11 @@ private fun SlideParagraphText(
             append(" ")
         }
         paragraph.runs.forEach { run ->
-            val fontSize = with(density) {
-                (run.fontSizePoints * EMU_PER_POINT * availableWidth.value / slideWidth)
-                    .coerceIn(1.5f, 96f)
-                    .dp
-                    .toSp()
-            }
+            val fontSizeDp = (run.fontSizePoints * EMU_PER_POINT * availableWidth.value / slideWidth)
+                .coerceIn(1.5f, 96f)
             pushStyle(
                 SpanStyle(
-                    fontSize = fontSize,
+                    fontSize = (fontSizeDp / density.fontScale).sp,
                     fontWeight = if (run.bold) FontWeight.Bold else FontWeight.Normal,
                     fontStyle = if (run.italic) FontStyle.Italic else FontStyle.Normal,
                     color = run.colorHex.toComposeColor(Color.Black)
