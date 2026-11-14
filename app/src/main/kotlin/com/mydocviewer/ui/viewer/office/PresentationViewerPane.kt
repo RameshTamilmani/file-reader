@@ -1,6 +1,7 @@
 package com.mydocviewer.ui.viewer.office
 
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -8,10 +9,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -134,9 +137,50 @@ fun PresentationViewerPane(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
-                        slide.images.firstOrNull()?.let { imgBytes ->
+                        slide.tables.forEach { table ->
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                table.forEach { row ->
+                                    Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                                        row.forEach { cell ->
+                                            Text(
+                                                text = cell,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier
+                                                    .width(120.dp)
+                                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                                    .padding(6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        slide.images.forEachIndexed { imageIndex, imgBytes ->
                             val bmp = remember(imgBytes) {
-                                BitmapFactory.decodeByteArray(imgBytes, 0, imgBytes.size)
+                                try {
+                                    BitmapFactory.decodeByteArray(imgBytes, 0, imgBytes.size)
+                                        ?: run {
+                                            Log.w(
+                                                "PresentationViewer",
+                                                "Unable to decode image ${imageIndex + 1} on slide ${slide.index}"
+                                            )
+                                            null
+                                        }
+                                } catch (exception: RuntimeException) {
+                                    Log.w(
+                                        "PresentationViewer",
+                                        "Unable to decode image ${imageIndex + 1} on slide ${slide.index}",
+                                        exception
+                                    )
+                                    null
+                                } catch (error: OutOfMemoryError) {
+                                    Log.w(
+                                        "PresentationViewer",
+                                        "Not enough memory to decode image ${imageIndex + 1} on slide ${slide.index}",
+                                        error
+                                    )
+                                    null
+                                }
                             }
                             if (bmp != null) {
                                 Image(
@@ -146,6 +190,20 @@ fun PresentationViewerPane(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(140.dp)
+                                )
+                            }
+                        }
+                        if (slide.notes.isNotBlank()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = stringResource(R.string.presentation_notes),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = slide.notes,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }

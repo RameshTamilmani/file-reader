@@ -32,6 +32,7 @@
     <string name="empty_files_body">கூடுதல் அனுமதிகள் இன்றி பதிவிறக்கங்கள் அல்லது ஆவணங்களைப் பார்க்க கணினி கோப்புறை தேர்வியைப் பயன்படுத்தவும்.</string>
 
     <string name="simplified_view_notice">எளிமைப்படுத்தப்பட்ட பார்வை — சாதனத்திற்குள் வடிவமைப்புடன் காட்டப்படுகிறது</string>
+    <string name="presentation_notes">குறிப்புகள்</string>
     <string name="unsupported_title">ஆதரிக்கப்படாத கோப்பு வடிவம்</string>
     <string name="unsupported_body">இந்தக் கோப்பு வகையை நேரடியாகக் காட்ட முடியவில்லை.</string>
     <string name="open_with_another_app">மற்றொரு செயலியில் திற</string>

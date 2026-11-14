@@ -32,6 +32,7 @@
     <string name="empty_files_body">Use the system folder picker to browse Downloads, Documents, or SD storage without broad permissions.</string>
 
     <string name="simplified_view_notice">Simplified view — Rendered offline with local formatting preservation</string>
+    <string name="presentation_notes">Notes</string>
     <string name="unsupported_title">Unsupported file format</string>
     <string name="unsupported_body">This file type cannot be rendered natively in the current release.</string>
     <string name="open_with_another_app">Open with another app</string>
