@@ -80,44 +80,96 @@ fun PresentationViewerPane(
     )
     val scope = rememberCoroutineScope()
     var scale by remember { mutableFloatStateOf(1f) }
-    val transformState = rememberTransformableState { zoomChange, _, _ ->
-        scale = (scale * zoomChange).coerceIn(1f, 4f)
-    }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(pagerState.currentPage) {
         onPageChanged(pagerState.currentPage + 1)
         scale = 1f
+        offsetX = 0f
+        offsetY = 0f
+    }
+
+    LaunchedEffect(initialPage, slides.size) {
+        val targetPage = (initialPage - 1).coerceIn(0, slides.lastIndex)
+        if (pagerState.currentPage != targetPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        HorizontalPager(
-            state = pagerState,
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .background(Color(0xFFD6D6D6))
-                .transformable(transformState)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { onTapContent() },
-                        onDoubleTap = { scale = if (scale > 1.2f) 1f else 2f }
+        ) {
+            val density = LocalDensity.current
+            val slideWidth = minOf(maxWidth, maxHeight * presentation.aspectRatio)
+            val slideHeight = slideWidth / presentation.aspectRatio
+            val viewportWidthPx = with(density) { maxWidth.toPx() }
+            val viewportHeightPx = with(density) { maxHeight.toPx() }
+            val slideWidthPx = with(density) { slideWidth.toPx() }
+            val slideHeightPx = with(density) { slideHeight.toPx() }
+            val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+                val nextScale = (scale * zoomChange).coerceIn(1f, 4f)
+                scale = nextScale
+                if (nextScale == 1f) {
+                    offsetX = 0f
+                    offsetY = 0f
+                } else {
+                    val maxOffsetX = ((slideWidthPx * nextScale - viewportWidthPx) / 2f)
+                        .coerceAtLeast(0f)
+                    val maxOffsetY = ((slideHeightPx * nextScale - viewportHeightPx) / 2f)
+                        .coerceAtLeast(0f)
+                    offsetX = (offsetX + panChange.x).coerceIn(-maxOffsetX, maxOffsetX)
+                    offsetY = (offsetY + panChange.y).coerceIn(-maxOffsetY, maxOffsetY)
+                }
+            }
+
+            LaunchedEffect(maxWidth, maxHeight) {
+                scale = 1f
+                offsetX = 0f
+                offsetY = 0f
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .transformable(
+                        state = transformState,
+                        canPan = { scale > 1f }
+                    )
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { onTapContent() },
+                            onDoubleTap = {
+                                scale = if (scale > 1.2f) 1f else 2f
+                                offsetX = 0f
+                                offsetY = 0f
+                            }
+                        )
+                    }
+            ) { pageIndex ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SlideCanvas(
+                        slide = slides[pageIndex],
+                        presentation = presentation,
+                        modifier = Modifier
+                            .width(slideWidth)
+                            .height(slideHeight)
+                            .graphicsLayer(
+                                scaleX = scale,
+                                scaleY = scale,
+                                translationX = offsetX,
+                                translationY = offsetY
+                            )
                     )
                 }
-        ) { pageIndex ->
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                val slideWidth = minOf(maxWidth, maxHeight * presentation.aspectRatio)
-                val slideHeight = slideWidth / presentation.aspectRatio
-                SlideCanvas(
-                    slide = slides[pageIndex],
-                    presentation = presentation,
-                    modifier = Modifier
-                        .width(slideWidth)
-                        .height(slideHeight)
-                        .graphicsLayer(scaleX = scale, scaleY = scale)
-                )
             }
         }
 

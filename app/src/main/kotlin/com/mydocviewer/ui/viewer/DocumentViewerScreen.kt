@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -153,8 +154,8 @@ fun DocumentViewerScreen(
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.rotate_screen)) },
                                     onClick = {
-                                        val isLandscape = activity?.requestedOrientation ==
-                                            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                        val isLandscape = activity?.resources?.configuration?.orientation ==
+                                            Configuration.ORIENTATION_LANDSCAPE
                                         activity?.requestedOrientation = if (isLandscape) {
                                             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                                         } else {
