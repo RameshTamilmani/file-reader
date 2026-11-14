@@ -1,5 +1,6 @@
 package com.mydocviewer.ui.viewer.office
 
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color as AndroidColor
@@ -45,12 +46,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -75,6 +78,7 @@ fun PresentationViewerPane(
 ) {
     val slides = presentation.slides
     if (slides.isEmpty()) return
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val pagerState = rememberPagerState(
         initialPage = (initialPage - 1).coerceIn(0, slides.lastIndex),
@@ -155,7 +159,9 @@ fun PresentationViewerPane(
                     }
             ) { pageIndex ->
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds(),
                     contentAlignment = Alignment.Center
                 ) {
                     SlideCanvas(
@@ -176,8 +182,11 @@ fun PresentationViewerPane(
         }
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(
+                horizontal = if (isLandscape) 8.dp else 12.dp,
+                vertical = if (isLandscape) 6.dp else 10.dp
+            ),
+            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp),
             modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             itemsIndexed(slides, key = { _, slide -> slide.index }) { index, slide ->
@@ -186,7 +195,7 @@ fun PresentationViewerPane(
                     shape = RoundedCornerShape(6.dp),
                     color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier
-                        .width(108.dp)
+                        .width(if (isLandscape) 80.dp else 108.dp)
                         .aspectRatio(presentation.aspectRatio)
                         .border(
                             width = if (selected) 2.dp else 1.dp,
