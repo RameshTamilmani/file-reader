@@ -47,6 +47,9 @@ object LocalPdfHelper {
         }
 
     suspend fun renderThumbnail(file: File, pageIndex: Int, widthPx: Int = 180): Bitmap? =
+        renderPage(file, pageIndex, widthPx)
+
+    suspend fun renderPage(file: File, pageIndex: Int, widthPx: Int = 1080): Bitmap? =
         withContext(Dispatchers.IO) {
             runCatching {
                 ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
