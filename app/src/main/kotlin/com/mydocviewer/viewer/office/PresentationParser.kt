@@ -34,9 +34,12 @@ object PresentationParser {
                 val presentation = entries[presentationPath]
                     ?: throw IllegalArgumentException("Invalid PowerPoint file: presentation.xml is missing")
                 val presentationRels = parseRelationships(entries["ppt/_rels/presentation.xml.rels"])
-                val slidePaths = parseSlideOrder(presentation)
-                    .mapNotNull { relationshipId -> presentationRels[relationshipId] }
-                    .ifEmpty {
+                val orderedSlidePaths = parseSlideOrder(presentation)
+                    .mapNotNull { relationshipId ->
+                        presentationRels[relationshipId]?.let { resolveTarget(presentationPath, it) }
+                    }
+                    .filter { it in entries }
+                val slidePaths = orderedSlidePaths.ifEmpty {
                         entries.keys
                             .filter { it.startsWith("ppt/slides/slide") && it.endsWith(".xml") }
                             .sortedBy { path -> path.substringAfterLast("slide").substringBefore(".xml").toIntOrNull() ?: Int.MAX_VALUE }

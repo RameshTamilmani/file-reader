@@ -31,8 +31,8 @@ A private, 100% offline, ad-free native Android document viewer built with Kotli
 | Library | License | Role | Paid / Cloud Alternatives Avoided |
 |---|---|---|---|
 | `androidx.pdf:pdf-viewer-fragment` | Apache-2.0 | Local PDF rendering & selection | PSPDFKit / Nutrient, Apryse, Foxit SDK |
-| `org.apache.poi` (`poi`, `poi-ooxml`, `poi-scratchpad`) | Apache-2.0 | Offline DOC/DOCX and XLS/XLSX parsing | Aspose, CloudConvert, Google Docs Viewer |
-| Android `XmlPullParser` + `ZipInputStream` | Android platform | Offline PPTX text, tables, notes, and embedded image extraction; text-only fallback for legacy PPT | Cloud conversion services |
+| `org.apache.poi` (`poi`, `poi-ooxml`, `poi-scratchpad`) | Apache-2.0 | Offline DOC/DOCX parsing | Aspose, CloudConvert, Google Docs Viewer |
+| Android `XmlPullParser` + `ZipInputStream` | Android platform | Offline XLSX sheets, PPTX text, tables, notes, and embedded image extraction; text-only fallbacks for legacy XLS/PPT | Cloud conversion services |
 | `androidx.room` + `datastore` | Apache-2.0 | On-device recents, bookmarks, preferences | Firebase Firestore / Cloud Sync |
 | `io.coil-kt:coil-compose` + `coil-gif` | Apache-2.0 | Local image & animated GIF rendering | Glide/Remote CDN loaders |
 | `com.google.dagger:hilt-android` | Apache-2.0 | Compile-time DI | — |
